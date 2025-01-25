@@ -12,11 +12,8 @@ public class PlayerController : MonoBehaviour
     [Range(0.5f, 5)]
     public float rotateSpeed = 2;
     public Vector3 gravityDirection = new Vector3(0, -1, 0);
-    private Transform startTransform;
     public float gravityStrength = 9.8f;
     private Vector3 gravityForce;
-    private Transform levelTransform, levelNowTransform, goalTransform;
-    private int levelIndex = 1;
     private void Awake()
     {
         if (instance != null)
@@ -26,17 +23,12 @@ public class PlayerController : MonoBehaviour
         instance = this;
         playerTransform = GetComponent<Transform>();
         playerRigidbody = GetComponent<Rigidbody>();
-        levelTransform = GameObject.Find("Levels").GetComponent<Transform>();
     }
     private void Start()
     {
         KeyManager.instance.move += move;
         KeyManager.instance.restart += restart;
         gravityForce = gravityDirection.normalized * gravityStrength;
-        levelNowTransform = levelTransform.GetChild(levelIndex - 1);
-        startTransform = levelNowTransform.Find("Start");
-        goalTransform = levelNowTransform.Find("Goal");
-        goalTransform.gameObject.SetActive(true);
     }
 
     #region character animation
@@ -140,30 +132,15 @@ public class PlayerController : MonoBehaviour
     {
         ifTeleporting = true;
         float speed = 1, bloomThreshold = 1.25f;
-        bool tempbool = false;
         Vector3 rotatePoint = playerTransform.position;
-        playerRigidbody.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ;
-        while (speed < 10)
+        Vector3 tempPosition = playerTransform.position;
+        Quaternion tempRotation = playerTransform.rotation;
+        playerRigidbody.constraints = RigidbodyConstraints.FreezePosition;
+        while (speed < 5)
         {
             for (int i = 0; i < 180 / (speed * rotateSpeed); i++)
             {
                 playerTransform.RotateAround(rotatePoint, -gravityDirection, speed * rotateSpeed);
-                if (!tempbool && playerRigidbody.velocity.magnitude < 3)
-                {
-                    playerRigidbody.AddForce(-0.5f * gravityDirection, ForceMode.Acceleration);
-                }
-                else
-                {
-                    if (!tempbool)
-                    {
-                        tempbool = true;
-                    }
-                    playerRigidbody.AddForce(gravityDirection * 0.2f, ForceMode.Acceleration);
-                }
-                if (tempbool && playerRigidbody.velocity.magnitude < 0.1f)
-                {
-                    playerRigidbody.constraints = RigidbodyConstraints.FreezePosition;
-                }
                 playerTransform.localScale += new Vector3(0.001f, 0.001f, 0.001f) * rotateSpeed;
                 bloomThreshold -= 0.001f * rotateSpeed;
                 VolumeController.instance.changeBloomThreshold(bloomThreshold);
@@ -171,25 +148,22 @@ public class PlayerController : MonoBehaviour
             }
             speed += 0.25f;
         }
-        Transform goalTransformOld = goalTransform;
-        levelIndex = levelIndex % levelTransform.childCount + 1;
-        levelNowTransform = levelTransform.GetChild(levelIndex - 1);
-        startTransform = levelNowTransform.Find("Start");
-        goalTransform = levelNowTransform.Find("Goal");
-        goalTransform.gameObject.SetActive(true);
+        Debug.Log("1");
         playerTransform.localScale = Vector3.one;
-        playerTransform.position = startTransform.position;
-        playerTransform.rotation = startTransform.rotation;
+        playerTransform.position = tempPosition;
+        playerTransform.rotation = tempRotation;
         straighten();
         playerRigidbody.constraints = RigidbodyConstraints.FreezeAll;
+        LevelController.instance.showAllLevel();
         while (bloomThreshold < 1.25f)
         {
             bloomThreshold += 0.005f * rotateSpeed;
             VolumeController.instance.changeBloomThreshold(bloomThreshold);
             yield return null;
         }
-        ifTeleporting = false;
-        goalTransformOld.gameObject.SetActive(false);
+        LevelController.instance.setAllGoalInactive();
+        LevelController.instance.setAllStartActive(); // TODO: 这部分单独提出来是因为在动画结束前将Goal变为inactive的话会直接停止动画 之后看看如何修改
+        ifTeleporting = false;        
     }
     //本关重开动画
     private IEnumerator restartIEnumerator()
@@ -204,9 +178,10 @@ public class PlayerController : MonoBehaviour
             VolumeController.instance.changeBloomThreshold(bloomThreshold);
             yield return null;
         }
+        Transform resetTransform = LevelController.instance.getResetTransform();
         playerTransform.localScale = Vector3.one;
-        playerTransform.position = startTransform.position;
-        playerTransform.rotation = startTransform.rotation;
+        playerTransform.position = resetTransform.position;
+        playerTransform.rotation = resetTransform.rotation;
         straighten();
         playerRigidbody.constraints = RigidbodyConstraints.FreezeAll;
         while (bloomThreshold < 1.25f)

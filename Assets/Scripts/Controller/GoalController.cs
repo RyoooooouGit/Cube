@@ -17,6 +17,7 @@ public class GoalController : MonoBehaviour
         if (!PlayerController.instance.ifTeleporting && goalTransform.position.Equals(playerTransform.position) && goalTransform.rotation.eulerAngles.Equals(playerTransform.rotation.eulerAngles))
         {
             StartCoroutine(PlayerController.instance.winIEnumerator(destination));
+            LevelController.instance.setResetTransform(goalTransform);
         }
     }
 
